@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/kklee998/urlshort"
 	urldb "github.com/kklee998/urlshort/db"
 
@@ -12,27 +13,29 @@ import (
 )
 
 func main() {
-	m := setupMux()
+	r := setupMux()
 
-	fmt.Println("connecting to DB")
+	r.NotFoundHandler = http.HandlerFunc(notFound)
+
+	log.Println("connecting to DB")
 	db, err := urldb.Open("sqlite3", "./urldb.sqlite3")
 	checkErr(err)
 	defer db.Close()
 
 	err = db.StartDB()
 	checkErr(err)
+	log.Println("Succesfully connected to DB")
 
-	sqlHandler := urlshort.SQLHandler(db, m)
-	m.HandleFunc("/urls", urlshort.URLCreateHandler(db))
+	sqlHandler := urlshort.SQLHandler(db, r)
+	r.HandleFunc("/urls", urlshort.URLCreateHandler(db))
 
-	fmt.Println("Starting the server on :8080")
-	http.ListenAndServe(":8080", sqlHandler)
+	log.Println("Starting the server on :8080")
+	log.Fatal(http.ListenAndServe(":8080", sqlHandler))
 }
 
-func setupMux() *http.ServeMux {
-	mux := http.NewServeMux()
+func setupMux() *mux.Router {
+	mux := mux.NewRouter()
 	mux.HandleFunc("/", index)
-	mux.HandleFunc("*", notFound)
 
 	return mux
 }
@@ -41,7 +44,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Hello There")
 }
 
-// TODO: add 404
 func notFound(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "THE PATH YOU ARE LOOKING FOR IS IN ANOTHER CASTLE")
 }
