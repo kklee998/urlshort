@@ -3,7 +3,8 @@ package db
 import "database/sql"
 
 type URL struct {
-	URL string
+	URL  string `json:"url"`
+	Path string `json:"path"`
 }
 
 func Open(driverName, dataSource string) (*DB, error) {
@@ -52,4 +53,13 @@ func (db *DB) FindURLbyPath(path string) (*URL, error) {
 	}
 
 	return &u, nil
+}
+
+func (db *DB) SaveUrlAndPath(u URL) error {
+	sqlstmt := `INSERT INTO url_table VALUES ($1, $2)`
+	_, err := db.db.Exec(sqlstmt, u.Path, u.URL)
+	if err != nil {
+		return err
+	}
+	return nil
 }
