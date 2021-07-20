@@ -27,7 +27,7 @@ func main() {
 	log.Println("Succesfully connected to DB")
 
 	sqlHandler := urlshort.SQLHandler(db, r)
-	r.HandleFunc("/urls", urlshort.URLCreateHandler(db))
+	r.HandleFunc("/urls", urlshort.URLHandler(db))
 
 	log.Println("Starting the server on :8080")
 	log.Fatal(http.ListenAndServe(":8080", sqlHandler))
@@ -45,6 +45,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
 	fmt.Fprintln(w, "THE PATH YOU ARE LOOKING FOR IS IN ANOTHER CASTLE")
 }
 

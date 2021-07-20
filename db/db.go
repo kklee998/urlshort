@@ -56,7 +56,18 @@ func (db *DB) FindURLbyPath(path string) (*URL, error) {
 }
 
 func (db *DB) SaveUrlAndPath(u URL) error {
-	sqlstmt := `INSERT INTO url_table VALUES ($1, $2)`
+	sqlstmt := `INSERT INTO url_table(path, url) VALUES ($1, $2)`
+	_, err := db.db.Exec(sqlstmt, u.Path, u.URL)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateUrlAndPath updates an existing path to a new URL. If the path does not exists, it creates a new one
+// along with the corresponding URL.
+func (db *DB) UpdateUrlAndPath(u URL) error {
+	sqlstmt := `INSERT INTO url_table(path, url) VALUES ($1, $2) ON CONFLICT (path) DO UPDATE SET url = $2`
 	_, err := db.db.Exec(sqlstmt, u.Path, u.URL)
 	if err != nil {
 		return err
