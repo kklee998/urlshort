@@ -25,9 +25,10 @@ func main() {
 	err = db.StartDB()
 	checkErr(err)
 	log.Println("Succesfully connected to DB")
-
+	// TODO: refactor this
 	sqlHandler := urlshort.SQLHandler(db, r)
-	r.HandleFunc("/urls", urlshort.URLHandler(db))
+	r.HandleFunc("/urls", urlshort.InsertUpdateHandler(db))
+	r.HandleFunc("/urls/{path}", urlshort.DeleteHandler(db))
 
 	log.Println("Starting the server on :8080")
 	log.Fatal(http.ListenAndServe(":8080", sqlHandler))

@@ -74,3 +74,11 @@ func (db *DB) UpdateUrlAndPath(u URL) error {
 	}
 	return nil
 }
+
+func (db *DB) DeleteURLbyPath(path string) error {
+	_, err := db.db.Exec("DELETE FROM url_table WHERE path=$1", path)
+	if err != nil {
+		return err
+	}
+	return nil
+}

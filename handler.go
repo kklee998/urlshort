@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	urldb "github.com/kklee998/urlshort/db"
 )
 
@@ -26,7 +27,7 @@ func SQLHandler(db *urldb.DB, fallback http.Handler) http.HandlerFunc {
 	}
 }
 
-func URLHandler(db *urldb.DB) http.HandlerFunc {
+func InsertUpdateHandler(db *urldb.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
@@ -88,4 +89,34 @@ func URLHandler(db *urldb.DB) http.HandlerFunc {
 
 	}
 
+}
+
+func DeleteHandler(db *urldb.DB) http.HandlerFunc {
+	// TODO: Refactor with SQLHandler
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			vars := mux.Vars(r)
+			path, ok := vars["path"]
+			if !ok {
+				return
+			}
+			err := db.DeleteURLbyPath(path)
+			if err != nil {
+				log.Printf("DeleteHandler %s: Unable to insert due to: %s", http.MethodDelete, err.Error())
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"errors": "Unable to remove path from DB",
+				})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
+		}
+
+	}
 }
