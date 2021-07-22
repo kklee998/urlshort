@@ -2,7 +2,7 @@ package db
 
 import "database/sql"
 
-type URL struct {
+type URLPath struct {
 	URL  string `json:"url"`
 	Path string `json:"path"`
 }
@@ -39,8 +39,8 @@ func (db *DB) StartDB() error {
 
 }
 
-func (db *DB) FindURLbyPath(path string) (*URL, error) {
-	var u URL
+func (db *DB) FindURLbyPath(path string) (*URLPath, error) {
+	var u URLPath
 	row := db.db.QueryRow("SELECT url from url_table WHERE path=$1", path)
 
 	err := row.Scan(&u.URL)
@@ -55,7 +55,7 @@ func (db *DB) FindURLbyPath(path string) (*URL, error) {
 	return &u, nil
 }
 
-func (db *DB) SaveUrlAndPath(u URL) error {
+func (db *DB) SaveUrlAndPath(u URLPath) error {
 	sqlstmt := `INSERT INTO url_table(path, url) VALUES ($1, $2)`
 	_, err := db.db.Exec(sqlstmt, u.Path, u.URL)
 	if err != nil {
@@ -66,7 +66,7 @@ func (db *DB) SaveUrlAndPath(u URL) error {
 
 // UpdateUrlAndPath updates an existing path to a new URL. If the path does not exists, it creates a new one
 // along with the corresponding URL.
-func (db *DB) UpdateUrlAndPath(u URL) error {
+func (db *DB) UpdateUrlAndPath(u URLPath) error {
 	sqlstmt := `INSERT INTO url_table(path, url) VALUES ($1, $2) ON CONFLICT (path) DO UPDATE SET url = $2`
 	_, err := db.db.Exec(sqlstmt, u.Path, u.URL)
 	if err != nil {

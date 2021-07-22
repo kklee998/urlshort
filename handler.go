@@ -2,6 +2,7 @@ package urlshort
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -10,10 +11,15 @@ import (
 )
 
 // SQLHandler returns a http.HandlerFunc that will attempt to find the
-// URL based on the provided path
-func SQLHandler(db *urldb.DB, fallback http.Handler) http.HandlerFunc {
+// URL based on the provided path. Path should not include the leading slash.
+func SQLHandler(db *urldb.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
+		vars := mux.Vars(r)
+		path, ok := vars["path"]
+		if !ok {
+			pathNotFound(w)
+			return
+		}
 		exists, err := db.FindURLbyPath(path)
 		if err != nil {
 			log.Fatal(err)
@@ -22,69 +28,75 @@ func SQLHandler(db *urldb.DB, fallback http.Handler) http.HandlerFunc {
 			http.Redirect(w, r, exists.URL, http.StatusFound)
 			return
 		}
-
-		fallback.ServeHTTP(w, r)
+		pathNotFound(w)
 	}
+}
+
+func pathNotFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+	fmt.Fprintln(w, "THE PATH YOU ARE LOOKING FOR IS IN ANOTHER CASTLE")
 }
 
 func InsertUpdateHandler(db *urldb.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:
-			var input urldb.URL
+			var input urldb.URLPath
 			err := json.NewDecoder(r.Body).Decode(&input)
 			if err != nil {
-				http.Error(w, "Unable to parse JSON", http.StatusUnprocessableEntity)
+				log.Printf("Unable to parse JSON due to error: %s", err.Error())
+				errMsg := map[string]string{
+					"errors": "Unable to parse JSON",
+				}
+				writeJSONResponse(w, errMsg, http.StatusUnprocessableEntity)
 				return
 			}
+
 			err = db.UpdateUrlAndPath(input)
+
 			if err != nil {
 				log.Printf("URLHandler %s: Unable to insert due to: %s", http.MethodPut, err.Error())
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{
+				errMsg := map[string]string{
 					"errors": "Unable to insert into DB",
-				})
+				}
+				writeJSONResponse(w, errMsg, http.StatusBadRequest)
 				return
 			}
 
 			var success = map[string]string{
 				"message": "succesfully updated",
 			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(success)
+			writeJSONResponse(w, success, http.StatusCreated)
 
 		case http.MethodPost:
-			var input urldb.URL
+			var input urldb.URLPath
 			err := json.NewDecoder(r.Body).Decode(&input)
 			if err != nil {
-				http.Error(w, "Unable to parse JSON", http.StatusUnprocessableEntity)
+				log.Printf("Unable to parse JSON due to error: %s", err.Error())
+				errMsg := map[string]string{
+					"errors": "Unable to parse JSON",
+				}
+				writeJSONResponse(w, errMsg, http.StatusUnprocessableEntity)
 				return
 			}
+
 			err = db.SaveUrlAndPath(input)
 			if err != nil {
 				log.Printf("URLHandler %s: Unable to insert due to: %s", http.MethodPost, err.Error())
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{
+				errMsg := map[string]string{
 					"errors": "Unable to insert into DB",
-				})
+				}
+				writeJSONResponse(w, errMsg, http.StatusBadRequest)
 				return
 			}
 
 			var success = map[string]string{
 				"message": "succesfully created",
 			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(success)
+			writeJSONResponse(w, success, http.StatusCreated)
 
 		default:
 			http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
-
 		}
 
 	}
@@ -92,31 +104,44 @@ func InsertUpdateHandler(db *urldb.DB) http.HandlerFunc {
 }
 
 func DeleteHandler(db *urldb.DB) http.HandlerFunc {
-	// TODO: Refactor with SQLHandler
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodDelete:
 			vars := mux.Vars(r)
 			path, ok := vars["path"]
 			if !ok {
-				return
+				pathNotFound(w)
 			}
 			err := db.DeleteURLbyPath(path)
 			if err != nil {
 				log.Printf("DeleteHandler %s: Unable to insert due to: %s", http.MethodDelete, err.Error())
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				_ = json.NewEncoder(w).Encode(map[string]string{
+				errMsg := map[string]string{
 					"errors": "Unable to remove path from DB",
-				})
+				}
+				writeJSONResponse(w, errMsg, http.StatusBadRequest)
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNoContent)
+			emptyMsg := map[string]string{"": ""}
+			writeJSONResponse(w, emptyMsg, http.StatusNoContent)
 
 		default:
 			http.Error(w, "METHOD NOT ALLOWED", http.StatusMethodNotAllowed)
 		}
 
 	}
+}
+
+func writeJSONResponse(w http.ResponseWriter, msg map[string]string, statusCode int) {
+	err := json.NewEncoder(w).Encode(msg)
+	if err != nil {
+		log.Printf("Unable to write JSON response due to error: %s", err.Error())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(map[string]string{
+			"errors": "Unable to send response",
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
 }
