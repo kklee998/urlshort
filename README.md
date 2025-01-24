@@ -1,10 +1,14 @@
 # URL Shortner
 
-This is an implementation of the [URL Shortener Gophercises](https://github.com/gophercises/urlshort) using sqlite as the data store instead of YAML.
+A simple URL shortner written in go
 
-## TODO
+# Getting started
 
-1. ~~Add new paths and urls~~
-1. ~~Delete and update them as well~~
-1. ~~404 Page~~
-1. Tests
+```bash
+mise use go
+```
+
+# Building the binary
+```bash
+go build -o urlshort.out
+```
